@@ -1,0 +1,52 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: 'mongo'
+    container_name: mongodb
+
+    volumes:
+      - data:/data/db
+  rabbitMq:
+    image: rabbitmq:3-management
+    hostname: rabbitmq
+    container_name: rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+
+  gateway:
+    build: ./gateway
+    container_name: gateway
+    volumes:
+      - ./gateway:/app
+      - /app/node_modules
+    ports:
+      - "5000:5000"
+    depends_on:
+      - rabbitMq
+
+  processor:
+    build: ./processor
+    container_name: processor
+    volumes:
+      - ./processor:/app
+      - /app/node_modules
+    ports:
+      - "7000:7000"
+    depends_on:
+      - rabbitMq
+      - gateway
+
+  # web-app:
+  #   build: ./analytics-react
+  #   container_name: web-app
+  #   volumes:
+  #     - ./analytics-react:/app
+  #   ports:
+  #     - "3000:3000"
+  #   stdin_open: true
+  #   tty: true
+
+volumes:
+  data:
