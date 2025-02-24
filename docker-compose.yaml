@@ -25,6 +25,8 @@ services:
       - "5000:5000"
     depends_on:
       - rabbitMq
+    env_file:
+      - ./gateway/.env
 
   processor:
     build: ./processor
@@ -37,16 +39,17 @@ services:
     depends_on:
       - rabbitMq
       - gateway
-
-  # web-app:
-  #   build: ./analytics-react
-  #   container_name: web-app
-  #   volumes:
-  #     - ./analytics-react:/app
-  #   ports:
-  #     - "3000:3000"
-  #   stdin_open: true
-  #   tty: true
+    env_file:
+      - ./processor/.env
+  web-app:
+    build: ./analytics-react
+    container_name: web-app
+    volumes:
+      - ./analytics-react:/app
+    ports:
+      - "3000:3000"
+    stdin_open: true
+    tty: true
 
 volumes:
   data:

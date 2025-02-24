@@ -2,8 +2,9 @@ import mongoose from "mongoose";
 import amqp from "amqplib";
 import express from "express";
 import cron from "node-cron";
-import e from "express";
 import { sendDataToDB } from "./services/sendDb.js";
+import { SQS } from "./sqs.js";
+import dotenv from "dotenv";
 
 const rabbitmqUrl = "amqp://rabbitmq";
 const rabbitmqQueue = "analytics_queue";
@@ -13,74 +14,29 @@ const mongoUrl = "mongodb://localhost:27017/analyticsdb"; // Replace with your M
 let data = {};
 let pageVisitData = {};
 let platformVisitData = {};
+dotenv.config();
+
+const sqs = new SQS("analytics-dev");
+
+const getMessage = async () => {
+  const queue = await sqs.readMessages();
+  if (!queue) return null;
+  const message = queue;
+  return message;
+};
 
 async function processAnalytics() {
-  let data = {};
-  let pageVisitData = {};
-  let platformVisitData = {};
   try {
-    const connection = await amqp.connect(rabbitmqUrl);
-    const channel = await connection.createChannel();
-    await channel.assertQueue(rabbitmqQueue, { durable: true });
-
     console.log("Processing analytics events...");
-
-   await channel.consume(
-      rabbitmqQueue,
-      (msg) => {
-        if (msg) {
-          const eventString = msg.content.toString();
-          console.log({eventString})
-          const event = JSON.parse(eventString);
-          if (event.apiKey === apiKey) {
-            try {
-              if (event.eventType === "pg_visit") {
-                const pageName = event?.properties?.title;
-                if (pageVisitData[pageName]) {
-                  pageVisitData[pageName].eventCount += 1;
-                } else {
-                  pageVisitData = {
-                    ...pageVisitData,
-                    [pageName]: { ...event, eventCount: 1 },
-                  };
-                }
-              } else if (event.eventType === "plt_visit") {
-                if (Object.keys(platformVisitData).length) {
-                  platformVisitData.eventCount += 1;
-                } else {
-                  platformVisitData = { ...event, eventCount: 1 };
-                }
-              }
-              channel.ack(msg); // Acknowledge msg to remove from queue
-            } catch (dbError) {
-              console.error("Database error:", dbError);
-              channel.nack(msg, false, true); //Nack the msg to requeue it
-            }
-          } else {
-            console.warn("Invalid API key in msg. Discarding.");
-            channel.ack(msg);
-          }
-          // resolve(JSON.parse(msg.content.toString()));
-        }
-      },
-      {
-        noAck: false,
-      }
-    );
-
-    data = { pageVisitData, platformVisitData };
-    console.log("Collected data::>>", data);
-    await sendDataToDB(data);
-    // pageVisitData = {};
-    // platformVisitData = {};
-    // console.log("Collected data::>>", data);
-    console.log("Analytics processing complete.");
+    const events = await getMessage();
+    console.log("evnet:>>", events.length);
+    sendDataToDB(events)
   } catch (error) {
     console.error("Error processing analytics:", error);
   } finally {
-    await mongoose.disconnect(); //Disconnect from Mongoose
-    await channel.close();
-    await connection.close();
+    // await mongoose.disconnect(); //Disconnect from Mongoose
+    // await channel.close();
+    // await connection.close();
   }
 }
 
@@ -99,7 +55,7 @@ const port = 7000;
 
 setInterval(() => {
   console.log("Running analytics processor...");
-  // processAnalytics();
+  processAnalytics();
 }, 10000);
 
 console.log("Analytics processor scheduled to run daily.");

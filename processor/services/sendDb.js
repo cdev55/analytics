@@ -13,17 +13,40 @@ const connectDB = async () => {
   }
 };
 
-const dailyEventSchema = new mongoose.Schema({
-  eventType: { type: String, required: true },
-  appId: { type: String, required: true },
-  apiKey: { type: String, required: true },
-  userId: { type: String, required: true },
-  url: { type: String },
-  userAgent: { type: String },
-  eventTime: { type: Date, default: null },
-  eventCount: { type: Number, default: 0 },
-  properties: {},
-});
+const dailyEventSchema = new mongoose.Schema(
+  {
+    eventType: { type: String, required: true },
+    appId: { type: String, required: true },
+    apiKey: { type: String, required: true },
+    userId: { type: String, required: true },
+    ip: { type: String },
+    city: { type: String },
+    country: { type: String },
+    userEmail: { type: String },
+    userMobile: { type: String },
+    loggedIn: { type: Boolean },
+    url: { type: String },
+    userAgent: { type: String },
+    eventTime: { type: Date, default: null },
+  },
+  {
+    timestamps: true,
+  }
+);
+
+// {
+//   "userId": "user-1j4c9v162",
+//   "appId": "",
+//   "loggedIn": false,
+//   "userEmail": "",
+//   "userMobile": "",
+//   "ip": "183.83.152.79",
+//   "location": "New Delhi-India",
+//   "url": "http://localhost:3000",
+//   "apiKey": "YOUR_API_KEY",
+//   "eventType": "pg_visit",
+//   "eventTime": "2025-02-21T10:19:39.866Z"
+// }
 
 dailyEventSchema.index({ eventType: 1, eventTime: 1 });
 
@@ -33,21 +56,7 @@ const DailyEvent =
 export const sendDataToDB = async (collectedData) => {
   await connectDB();
   try {
-    console.log({ dataTosend: collectedData });
-    let documents = [];
-    if (
-      collectedData?.pageVisitData &&
-      Object.keys(collectedData?.pageVisitData).length > 0
-    ) {
-      documents.push(...Object.values(collectedData?.pageVisitData));
-    }
-
-    if (
-      collectedData?.platformVisitData &&
-      Object.keys(collectedData?.platformVisitData).length > 0
-    ) {
-      documents.push(collectedData?.platformVisitData);
-    }
+    let documents = collectedData;
     const options = { ordered: true };
     if (documents.length) {
       const result = await DailyEvent.insertMany(documents, options);

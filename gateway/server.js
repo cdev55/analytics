@@ -1,14 +1,16 @@
 import express from "express";
 import amqp from "amqplib";
+import dotenv from "dotenv";
 
 import cors from "cors";
+import { SQS } from "./sqs.js";
 const app = express();
 
 const port = 5000;
 
 // app.use(express.json()); // Parse JSON request bodies
 app.use(express.text({ type: "text/plain" }));
-
+dotenv.config();
 app.use(cors());
 // app.use(
 //   cors({
@@ -23,6 +25,8 @@ app.use(cors());
 
 const apiKey = "YOUR_API_KEY"; // Replace with your actual API key
 
+const sqs = new SQS("analytics-dev");
+
 app.post("/events", async (req, res) => {
   const event = req.body;
 
@@ -31,26 +35,28 @@ app.post("/events", async (req, res) => {
   //   console.warn("Invalid API key");
   //   return res.status(401).send("Invalid API key");
   // }
-console.log({event})
-// console.log({parsed:JSON.parse(event)})
+  console.log({ event });
+  // console.log({parsed:JSON.parse(event)})
   try {
     // const channel = connectToRabbitMQ();
-    const connection = await amqp.connect("amqp://localhost"); // Replace with your RabbitMQ URL
-    let rabbitmqChannel = await connection.createChannel();
-    const queue = "analytics_queue"; // Name of the queue
-    await rabbitmqChannel.assertQueue(queue, { durable: true });
-    // connectToRabbitMQ()
-    rabbitmqChannel.sendToQueue(
-      "analytics_queue",
-      Buffer.from(JSON.stringify(event)),
-      {
-        persistent: true, // Messages survive RabbitMQ restarts
-      }
-    );
-    console.log(`Published event(s) to RabbitMQ`);
+    await sqs.sendMessage(event);
+
+    // const connection = await amqp.connect("amqp://localhost"); // Replace with your RabbitMQ URL
+    // let rabbitmqChannel = await connection.createChannel();
+    // const queue = "analytics_queue"; // Name of the queue
+    // await rabbitmqChannel.assertQueue(queue, { durable: true });
+    // // connectToRabbitMQ()
+    // rabbitmqChannel.sendToQueue(
+    //   "analytics_queue",
+    //   Buffer.from(JSON.stringify(event)),
+    //   {
+    //     persistent: true, // Messages survive RabbitMQ restarts
+    //   }
+    // );
+    console.log(`Published event(s) to SQS`);
     res.status(202).send("Events accepted for processing");
   } catch (error) {
-    console.error("Error publishing to RabbitMQ:", error);
+    console.error("Error publishing to SQS:", error);
     res.status(500).send("Error publishing events");
   }
 });
